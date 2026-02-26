@@ -5,7 +5,7 @@ import os
 import re
 from preprocess import preprocess_image
 
-app = FastAPI(title="AI Document Verification API")
+app = FastAPI(title="Universal AI Document Verification API")
 
 # Enable CORS (Frontend connection kosam)
 app.add_middleware(
@@ -23,7 +23,7 @@ reader = easyocr.Reader(['en'], gpu=False)
 @app.get("/")
 def read_root():
     return {
-        "message": "Welcome to the AI Document Verification API. Use /verify to upload an image."
+        "message": "Welcome to Universal AI Document Verification API. Use /verify to upload a document."
     }
 
 
@@ -46,8 +46,10 @@ async def verify_document(file: UploadFile = File(...)):
         total_confidence = 0.0
 
         for (bbox, text, prob) in results:
-            extracted_texts.append(text.strip())
-            total_confidence += float(prob)
+            clean_text = text.strip()
+            if clean_text:
+                extracted_texts.append(clean_text)
+                total_confidence += float(prob)
 
         avg_confidence = (
             total_confidence / len(results)
@@ -58,29 +60,48 @@ async def verify_document(file: UploadFile = File(...)):
 
         full_text = " ".join(extracted_texts)
 
-        # -------- FIELD EXTRACTION --------
+        # -------- UNIVERSAL FIELD EXTRACTION --------
 
-        name_match = re.search(r'\b[A-Z]{3,}(?:\s[A-Z]{3,})+\b', full_text)
-        name = name_match.group(0) if name_match else "Not Detected"
+        # Aadhaar (12 digits)
+        aadhaar_match = re.search(r'\b\d{4}\s?\d{4}\s?\d{4}\b', full_text)
+        aadhaar = aadhaar_match.group(0) if aadhaar_match else "Not Detected"
 
-        id_match = re.search(r'\b\d{2}[A-Z]{2,}\d+\b', full_text)
-        student_id = id_match.group(0) if id_match else "Not Detected"
+        # PAN Card
+        pan_match = re.search(r'\b[A-Z]{5}[0-9]{4}[A-Z]{1}\b', full_text)
+        pan = pan_match.group(0) if pan_match else "Not Detected"
 
+        # Phone number
         phone_match = re.search(r'\b\d{10}\b', full_text)
         phone = phone_match.group(0) if phone_match else "Not Detected"
 
-        # -------- AI AUTHENTICITY SCORING --------
+        # Email
+        email_match = re.search(r'\b[\w\.-]+@[\w\.-]+\.\w+\b', full_text)
+        email = email_match.group(0) if email_match else "Not Detected"
+
+        # Name detection
+        name_match = re.search(r'\b[A-Z]{3,}(?:\s[A-Z]{3,})+\b', full_text)
+        name = name_match.group(0) if name_match else "Not Detected"
+
+        # -------- SMART AUTHENTICITY SCORING --------
 
         structure_score = 0
 
-        if student_id != "Not Detected":
-            structure_score += 40
+        if aadhaar != "Not Detected":
+            structure_score += 30
+
+        if pan != "Not Detected":
+            structure_score += 30
 
         if phone != "Not Detected":
-            structure_score += 30
+            structure_score += 15
+
+        if email != "Not Detected":
+            structure_score += 10
 
         if name != "Not Detected":
-            structure_score += 30
+            structure_score += 15
+
+        structure_score = min(structure_score, 100)
 
         authenticity_index = (0.6 * avg_percentage) + (0.4 * structure_score)
         authenticity_index = round(authenticity_index, 2)
@@ -101,10 +122,13 @@ async def verify_document(file: UploadFile = File(...)):
             "status": "success",
             "detected_fields": {
                 "Name": name,
-                "Student ID": student_id,
-                "Phone": phone
+                "Aadhaar": aadhaar,
+                "PAN": pan,
+                "Phone": phone,
+                "Email": email
             },
             "ocr_confidence_percentage": avg_percentage,
+            "structure_score": structure_score,
             "authenticity_index": authenticity_index,
             "document_verdict": verdict
         }
