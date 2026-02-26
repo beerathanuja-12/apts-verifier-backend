@@ -3,38 +3,34 @@ import numpy as np
 
 def preprocess_image(image_path):
     """
-    Performs basic image preprocessing for better OCR results.
+    Advanced preprocessing for improved OCR accuracy.
     """
-    # 1. Load image
+
     img = cv2.imread(image_path)
     if img is None:
         raise ValueError("Image not found or invalid format")
 
-    # 2. Resize (optional, but can help if images are too small/large)
-    # We'll maintain aspect ratio
-    height, width = img.shape[:2]
-    max_dim = 1000
-    if max(height, width) > max_dim:
-        scale = max_dim / max(height, width)
-        img = cv2.resize(img, (int(width * scale), int(height * scale)))
+    # 1️⃣ Resize (increase clarity for small text)
+    img = cv2.resize(img, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
 
-    # 3. Grayscale
+    # 2️⃣ Convert to Grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # 4. Noise Removal (Median Blur)
-    denoised = cv2.medianBlur(gray, 3)
+    # 3️⃣ Contrast Enhancement (CLAHE)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    enhanced = clahe.apply(gray)
 
-    # 5. Thresholding (Binarization)
-    # Otsu's thresholding automatically calculates the best threshold value
-    _, thresh = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # 4️⃣ Noise Removal
+    blurred = cv2.GaussianBlur(enhanced, (5,5), 0)
+
+    # 5️⃣ Adaptive Threshold (better than Otsu for ID cards)
+    thresh = cv2.adaptiveThreshold(
+        blurred,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        11,
+        2
+    )
 
     return thresh
-
-if __name__ == "__main__":
-    # Test preprocessing
-    try:
-        processed = preprocess_image("test_sample.jpg")
-        cv2.imwrite("processed_sample.jpg", processed)
-        print("Preprocessing complete. Saved as processed_sample.jpg")
-    except Exception as e:
-        print(f"Error: {e}")
