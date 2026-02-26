@@ -1,0 +1,7 @@
+{
+  "name": "AP/TS AI Document Verifier",
+  "description": "AI-powered document verification system for Andhra Pradesh and Telangana, supporting Aadhaar, PAN, and land records with Telugu UI and voice output.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

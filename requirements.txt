@@ -1,0 +1,8 @@
+easyocr
+fastapi
+uvicorn
+python-multipart
+opencv-python
+numpy
+matplotlib
+scikit-learn
